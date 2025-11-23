@@ -27,4 +27,4 @@ jobs:
           go-version: ${{ matrix.go }}
 
       - name: Build
-        run: go build cmd/flint/main.go
+        run: go build -v ./cmd/flint/
