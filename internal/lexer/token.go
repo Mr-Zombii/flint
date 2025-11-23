@@ -26,6 +26,9 @@ const (
 	String
 	Byte
 	Bool
+	Tuple
+	List
+	Nil
 
 	// Groupings
 	LeftParen    // (
@@ -88,12 +91,15 @@ const (
 	KwIf
 	KwIn
 	KwInt
-	KwLet
+	KwList
+	KwMut
+	KwNil
 	KwPanic
 	KwPub
 	KwString
 	KwType
 	KwUse
+	KwVal
 	KwWhere
 )
 
@@ -103,20 +109,24 @@ var KeywordMap = map[string]TokenKind{
 	"Bool":   KwBool,
 	"Byte":   KwByte,
 	"else":   KwElse,
+	"False":  Bool,
 	"Float":  KwFloat,
 	"fn":     KwFn,
 	"for":    KwFor,
 	"if":     KwIf,
 	"in":     KwIn,
-	"let":    KwLet,
+	"Int":    KwInt,
+	"List":   KwList,
+	"mut":    KwMut,
+	"Nil":    KwNil,
 	"panic":  KwPanic,
 	"pub":    KwPub,
 	"String": KwString,
+	"True":   Bool,
 	"type":   KwType,
 	"use":    KwUse,
+	"val":    KwVal,
 	"where":  KwWhere,
-	"true":   Bool,
-	"false":  Bool,
 }
 
 func LookupIdentifier(name string) TokenKind {

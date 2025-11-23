@@ -1,1 +1,1 @@
-let a = "bad\qstring"
+val ints: List(Int) = [1, 2, 3]
