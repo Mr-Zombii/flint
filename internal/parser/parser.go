@@ -144,7 +144,7 @@ func (p *Parser) parsePrimary() Expr {
 		return expr
 	case lexer.Int:
 		p.eat()
-		clean := stripNumericSeparators(tok.Lexeme)
+		clean := lexer.StripNumericSeparators(tok.Lexeme)
 		v, err := strconv.ParseInt(clean, 10, 64)
 		if err != nil {
 			p.error(fmt.Sprintf("invalid int literal %q at %d:%d", tok.Lexeme, tok.Line, tok.Column))
@@ -153,7 +153,7 @@ func (p *Parser) parsePrimary() Expr {
 		return &IntLiteral{Value: v, Raw: tok.Lexeme, Pos: tok}
 	case lexer.Float:
 		p.eat()
-		clean := stripNumericSeparators(tok.Lexeme)
+		clean := lexer.StripNumericSeparators(tok.Lexeme)
 		f, err := strconv.ParseFloat(clean, 64)
 		if err != nil {
 			p.error(fmt.Sprintf("invalid float literal %q at %d:%d", tok.Lexeme, tok.Line, tok.Column))
@@ -271,16 +271,6 @@ func (p *Parser) parseCall(callee Expr) Expr {
 		return nil
 	}
 	return &CallExpr{Callee: callee, Args: args, Pos: lparen}
-}
-
-func stripNumericSeparators(s string) string {
-	out := []rune{}
-	for _, r := range s {
-		if r != '_' {
-			out = append(out, r)
-		}
-	}
-	return string(out)
 }
 
 func (p *Parser) parseValDecl() Expr {

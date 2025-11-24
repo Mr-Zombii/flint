@@ -2,268 +2,24 @@ package typechecker
 
 import (
 	"fmt"
-	"maps"
 	"strings"
 
 	"flint/internal/lexer"
 	"flint/internal/parser"
 )
 
-type TypeKind int
-
-const (
-	TyError TypeKind = iota
-	TyInt
-	TyFloat
-	TyBool
-	TyByte
-	TyString
-	TyNil
-	TyFunc
-	TyList
-	TyTuple
-	TyRange
-)
-
-type Type struct {
-	kind   TypeKind
-	Params []*Type
-	Ret    *Type
-
-	Elem   *Type
-	TElems []*Type
-}
-
-func (t Type) String() string {
-	switch t.kind {
-	case TyInt:
-		return "Int"
-	case TyFloat:
-		return "Float"
-	case TyBool:
-		return "Bool"
-	case TyString:
-		return "String"
-	case TyByte:
-		return "Byte"
-	case TyNil:
-		return "Nil"
-	case TyList:
-		if t.Elem != nil {
-			return fmt.Sprintf("List(%s)", t.Elem.String())
-		}
-		return "List(<unknown>)"
-	case TyTuple:
-		parts := []string{}
-		for _, e := range t.TElems {
-			if e == nil {
-				parts = append(parts, "<unknown>")
-			} else {
-				parts = append(parts, e.String())
-			}
-		}
-		return fmt.Sprintf("(%s)", strings.Join(parts, ", "))
-	case TyRange:
-		if t.Elem != nil {
-			return fmt.Sprintf("Range(%s)", t.Elem.String())
-		}
-		return "Range(Int)"
-	case TyFunc:
-		parts := []string{}
-		for _, p := range t.Params {
-			parts = append(parts, p.String())
-		}
-		return fmt.Sprintf("(%s) -> %s", strings.Join(parts, ", "), t.Ret.String())
-	}
-	return "<error>"
-}
-
-func (t Type) Kind() TypeKind { return t.kind }
-
-func (t *Type) Equal(u *Type) bool {
-	if t == nil || u == nil {
-		return t == u
-	}
-	if t.kind != u.kind {
-		return false
-	}
-	switch t.kind {
-	case TyFunc:
-		if len(t.Params) != len(u.Params) {
-			return false
-		}
-		for i := range t.Params {
-			if !t.Params[i].Equal(u.Params[i]) {
-				return false
-			}
-		}
-		return t.Ret.Equal(u.Ret)
-	case TyList:
-		if t.Elem == nil || u.Elem == nil {
-			return t.Elem == u.Elem
-		}
-		return t.Elem.Equal(u.Elem)
-	case TyTuple:
-		if len(t.TElems) != len(u.TElems) {
-			return false
-		}
-		for i := range t.TElems {
-			if !t.TElems[i].Equal(u.TElems[i]) {
-				return false
-			}
-		}
-		return true
-	case TyRange:
-		if t.Elem == nil || u.Elem == nil {
-			return t.Elem == u.Elem
-		}
-		return t.Elem.Equal(u.Elem)
-	default:
-		return true
-	}
-}
-
-type BinOpSig struct {
-	Left  Type
-	Right Type
-	Out   Type
-}
-
-var binOps = map[lexer.TokenKind][]BinOpSig{
-	lexer.Plus:    {{Type{kind: TyInt}, Type{kind: TyInt}, Type{kind: TyInt}}},
-	lexer.Minus:   {{Type{kind: TyInt}, Type{kind: TyInt}, Type{kind: TyInt}}},
-	lexer.Star:    {{Type{kind: TyInt}, Type{kind: TyInt}, Type{kind: TyInt}}},
-	lexer.Slash:   {{Type{kind: TyInt}, Type{kind: TyInt}, Type{kind: TyInt}}},
-	lexer.Percent: {{Type{kind: TyInt}, Type{kind: TyInt}, Type{kind: TyInt}}},
-
-	lexer.PlusDot:  {{Type{kind: TyFloat}, Type{kind: TyFloat}, Type{kind: TyFloat}}},
-	lexer.MinusDot: {{Type{kind: TyFloat}, Type{kind: TyFloat}, Type{kind: TyFloat}}},
-	lexer.StarDot:  {{Type{kind: TyFloat}, Type{kind: TyFloat}, Type{kind: TyFloat}}},
-	lexer.SlashDot: {{Type{kind: TyFloat}, Type{kind: TyFloat}, Type{kind: TyFloat}}},
-
-	lexer.Less:         {{Type{kind: TyInt}, Type{kind: TyInt}, Type{kind: TyBool}}},
-	lexer.LessEqual:    {{Type{kind: TyInt}, Type{kind: TyInt}, Type{kind: TyBool}}},
-	lexer.Greater:      {{Type{kind: TyInt}, Type{kind: TyInt}, Type{kind: TyBool}}},
-	lexer.GreaterEqual: {{Type{kind: TyInt}, Type{kind: TyInt}, Type{kind: TyBool}}},
-
-	lexer.LessDot:         {{Type{kind: TyFloat}, Type{kind: TyFloat}, Type{kind: TyBool}}},
-	lexer.LessEqualDot:    {{Type{kind: TyFloat}, Type{kind: TyFloat}, Type{kind: TyBool}}},
-	lexer.GreaterDot:      {{Type{kind: TyFloat}, Type{kind: TyFloat}, Type{kind: TyBool}}},
-	lexer.GreaterEqualDot: {{Type{kind: TyFloat}, Type{kind: TyFloat}, Type{kind: TyBool}}},
-
-	lexer.AmperAmper: {{Type{kind: TyBool}, Type{kind: TyBool}, Type{kind: TyBool}}},
-	lexer.VbarVbar:   {{Type{kind: TyBool}, Type{kind: TyBool}, Type{kind: TyBool}}},
-
-	lexer.LtGt: {{Type{kind: TyString}, Type{kind: TyString}, Type{kind: TyString}}},
-
-	lexer.EqualEqual: {
-		{Type{kind: TyInt}, Type{kind: TyInt}, Type{kind: TyBool}},
-		{Type{kind: TyFloat}, Type{kind: TyFloat}, Type{kind: TyBool}},
-		{Type{kind: TyBool}, Type{kind: TyBool}, Type{kind: TyBool}},
-		{Type{kind: TyString}, Type{kind: TyString}, Type{kind: TyBool}},
-		{Type{kind: TyByte}, Type{kind: TyByte}, Type{kind: TyBool}},
-	},
-	lexer.NotEqual: {
-		{Type{kind: TyInt}, Type{kind: TyInt}, Type{kind: TyBool}},
-		{Type{kind: TyFloat}, Type{kind: TyFloat}, Type{kind: TyBool}},
-		{Type{kind: TyBool}, Type{kind: TyBool}, Type{kind: TyBool}},
-		{Type{kind: TyString}, Type{kind: TyString}, Type{kind: TyBool}},
-		{Type{kind: TyByte}, Type{kind: TyByte}, Type{kind: TyBool}},
-	},
-}
-
-type UnaryOpSig struct {
-	Arg Type
-	Out Type
-}
-
-var unaryOps = map[lexer.TokenKind]UnaryOpSig{
-	lexer.Minus:    {Type{kind: TyInt}, Type{kind: TyInt}},
-	lexer.MinusDot: {Type{kind: TyFloat}, Type{kind: TyFloat}},
-	lexer.Bang:     {Type{kind: TyBool}, Type{kind: TyBool}},
-}
-
-type Env struct {
-	vars    map[string]*Type
-	parent  *Env
-	modules map[string]*Env
-}
-
-func NewEnv(parent *Env) *Env {
-	modules := make(map[string]*Env)
-	if parent != nil && parent.modules != nil {
-		maps.Copy(modules, parent.modules)
-	}
-	return &Env{
-		vars:    make(map[string]*Type),
-		parent:  parent,
-		modules: modules,
-	}
-}
-
-func (e *Env) Get(name string) (*Type, bool) {
-	if ty, ok := e.vars[name]; ok {
-		return ty, true
-	}
-	if e.parent != nil {
-		return e.parent.Get(name)
-	}
-	return nil, false
-}
-
-func (e *Env) Set(name string, ty *Type) {
-	e.vars[name] = ty
-}
-
 type TypeChecker struct {
 	errors []string
 	env    *Env
+	ctx    Context
 }
 
 func New() *TypeChecker {
 	return &TypeChecker{
 		errors: []string{},
 		env:    NewEnv(nil),
+		ctx:    TopLevel,
 	}
-}
-
-func (tc *TypeChecker) error(token lexer.Token, msg string) {
-	tc.errors = append(tc.errors,
-		fmt.Sprintf("[line %d:%d] Error: %s", token.Line, token.Column, msg))
-}
-
-func (tc *TypeChecker) resolveType(t parser.Expr) *Type {
-	switch typ := t.(type) {
-	case *parser.TypeExpr:
-		switch typ.Name {
-		case "Int":
-			return &Type{kind: TyInt}
-		case "Float":
-			return &Type{kind: TyFloat}
-		case "Bool":
-			return &Type{kind: TyBool}
-		case "String":
-			return &Type{kind: TyString}
-		case "Byte":
-			return &Type{kind: TyByte}
-		case "Nil":
-			return &Type{kind: TyNil}
-		case "List":
-			elemTy := &Type{kind: TyNil}
-			if typ.Generic != nil {
-				elemTy = tc.resolveType(typ.Generic)
-			}
-			return &Type{kind: TyList, Elem: elemTy}
-		}
-	case *parser.TupleTypeExpr:
-		elems := []*Type{}
-		for _, te := range typ.Types {
-			e := tc.resolveType(te)
-			elems = append(elems, e)
-		}
-		return &Type{kind: TyTuple, TElems: elems}
-	}
-	return &Type{kind: TyError}
 }
 
 func (tc *TypeChecker) CheckExpr(expr parser.Expr) (*Type, error) {
@@ -277,6 +33,14 @@ func (tc *TypeChecker) CheckExpr(expr parser.Expr) (*Type, error) {
 }
 
 func (tc *TypeChecker) Check(expr parser.Expr) *Type {
+	if tc.ctx == TopLevel {
+		switch expr.(type) {
+		case *parser.ValDeclExpr, *parser.MutDeclExpr, *parser.IfExpr,
+			*parser.ForExpr, *parser.MatchExpr, *parser.PipelineExpr:
+			tc.error(lexer.Token{}, fmt.Sprintf("%T is not allowed at top-level; must be inside a function/block", expr))
+			return &Type{kind: TyError}
+		}
+	}
 	switch e := expr.(type) {
 	case *parser.IntLiteral:
 		return &Type{kind: TyInt}
@@ -299,9 +63,17 @@ func (tc *TypeChecker) Check(expr parser.Expr) *Type {
 	case *parser.MutDeclExpr:
 		return tc.visitMutDecl(e)
 	case *parser.FuncDeclExpr:
-		return tc.visitFuncDecl(e)
+		oldCtx := tc.ctx
+		tc.ctx = FunctionBody
+		ty := tc.visitFuncDecl(e)
+		tc.ctx = oldCtx
+		return ty
 	case *parser.CallExpr:
-		return tc.visitCall(e)
+		oldCtx := tc.ctx
+		tc.ctx = FunctionBody
+		ty := tc.visitCall(e)
+		tc.ctx = oldCtx
+		return ty
 	case *parser.BlockExpr:
 		return tc.visitBlock(e)
 	case *parser.UseExpr:
@@ -391,6 +163,7 @@ func (tc *TypeChecker) visitMutDecl(d *parser.MutDeclExpr) *Type {
 	tc.env.Set(d.Name.Lexeme, valTy)
 	return valTy
 }
+
 func (tc *TypeChecker) visitFuncDecl(fn *parser.FuncDeclExpr) *Type {
 	paramTypes := make([]*Type, len(fn.Params))
 	for i, p := range fn.Params {

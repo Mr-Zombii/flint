@@ -132,13 +132,6 @@ var KeywordMap = map[string]TokenKind{
 	"where":  KwWhere,
 }
 
-func LookupIdentifier(name string) TokenKind {
-	if k, ok := KeywordMap[name]; ok {
-		return k
-	}
-	return Identifier
-}
-
 var precedence = map[TokenKind]int{
 	VbarVbar:   1,
 	Pipe:       1,
@@ -168,11 +161,4 @@ var precedence = map[TokenKind]int{
 	SlashDot: 6,
 	Percent:  6,
 	DotDot:   6,
-}
-
-func (k TokenKind) Precedence() int {
-	if p, ok := precedence[k]; ok {
-		return p
-	}
-	return 0
 }

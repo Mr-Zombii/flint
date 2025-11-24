@@ -19,31 +19,20 @@ func New(source, filename string) *Lexer {
 	return &Lexer{source: r, position: 0, lineNumber: 1, columnNumber: 1, fileName: filename}
 }
 
-func (l *Lexer) advanceRune() rune {
-	if l.position >= len(l.source) {
-		return 0
+func Tokenize(source, filename string) ([]Token, error) {
+	lx := New(source, filename)
+	out := []Token{}
+	for {
+		tok := lx.Next()
+		out = append(out, tok)
+		if tok.Kind == EndOfFile {
+			break
+		}
+		if tok.Kind == Illegal {
+			lx.error("Illegal character")
+		}
 	}
-	r := l.source[l.position]
-	l.position++
-	if r == '\n' {
-		l.lineNumber++
-		l.columnNumber = 1
-	} else {
-		l.columnNumber++
-	}
-	return r
-}
-
-func (l *Lexer) peekRuneAt(offset int) rune {
-	idx := l.position + offset
-	if idx >= len(l.source) {
-		return 0
-	}
-	return l.source[idx]
-}
-
-func (l *Lexer) makeToken(kind TokenKind, lexeme string, lineNumber, columnNumber int) Token {
-	return Token{Kind: kind, Lexeme: lexeme, Line: lineNumber, Column: columnNumber}
+	return out, nil
 }
 
 func (l *Lexer) Next() Token {
@@ -244,6 +233,33 @@ func (l *Lexer) Next() Token {
 	}
 }
 
+func (l *Lexer) advanceRune() rune {
+	if l.position >= len(l.source) {
+		return 0
+	}
+	r := l.source[l.position]
+	l.position++
+	if r == '\n' {
+		l.lineNumber++
+		l.columnNumber = 1
+	} else {
+		l.columnNumber++
+	}
+	return r
+}
+
+func (l *Lexer) peekRuneAt(offset int) rune {
+	idx := l.position + offset
+	if idx >= len(l.source) {
+		return 0
+	}
+	return l.source[idx]
+}
+
+func (l *Lexer) makeToken(kind TokenKind, lexeme string, lineNumber, columnNumber int) Token {
+	return Token{Kind: kind, Lexeme: lexeme, Line: lineNumber, Column: columnNumber}
+}
+
 func (l *Lexer) scanIdentifier() string {
 	start := l.position
 	for {
@@ -254,14 +270,6 @@ func (l *Lexer) scanIdentifier() string {
 		l.advanceRune()
 	}
 	return string(l.source[start:l.position])
-}
-
-func isIdentifierStart(r rune) bool {
-	return unicode.IsLetter(r) || r == '_' || r == '$'
-}
-
-func isIdentifierPart(r rune) bool {
-	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '$' || r == '\''
 }
 
 func (l *Lexer) scanNumberLiteral() (string, TokenKind) {
@@ -283,7 +291,7 @@ func (l *Lexer) scanNumberLiteral() (string, TokenKind) {
 		l.advanceRune()
 	}
 	lex := string(l.source[start:l.position])
-	clean := stripNumericSeparators(lex)
+	clean := StripNumericSeparators(lex)
 	if isFloat {
 		if _, err := strconv.ParseFloat(clean, 64); err == nil {
 			return lex, Float
@@ -296,16 +304,6 @@ func (l *Lexer) scanNumberLiteral() (string, TokenKind) {
 		return lex, Float
 	}
 	return lex, Illegal
-}
-
-func stripNumericSeparators(s string) string {
-	out := []rune{}
-	for _, r := range s {
-		if r != '_' {
-			out = append(out, r)
-		}
-	}
-	return string(out)
 }
 
 func (l *Lexer) scanStringLiteral() string {
@@ -426,20 +424,4 @@ func (l *Lexer) consumeWhitespace() {
 		}
 		break
 	}
-}
-
-func Tokenize(source, filename string) ([]Token, error) {
-	lx := New(source, filename)
-	out := []Token{}
-	for {
-		tok := lx.Next()
-		out = append(out, tok)
-		if tok.Kind == EndOfFile {
-			break
-		}
-		if tok.Kind == Illegal {
-			lx.error("Illegal character")
-		}
-	}
-	return out, nil
 }
