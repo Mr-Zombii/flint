@@ -135,33 +135,33 @@ func (tc *TypeChecker) visitValDecl(d *parser.ValDeclExpr) *Type {
 }
 
 func (tc *TypeChecker) visitMutDecl(d *parser.MutDeclExpr) *Type {
-	var valTy *Type
+	var mutTy *Type
 	if d.Value != nil {
 		switch expr := d.Value.(type) {
 		case *parser.ListExpr:
-			valTy = tc.visitList(expr, nil)
+			mutTy = tc.visitList(expr, nil)
 		default:
-			valTy = tc.Check(expr)
+			mutTy = tc.Check(expr)
 		}
-		if valTy == nil || valTy.TKind == TyError {
-			tc.error(d.Name, fmt.Sprintf("cannot infer type for val '%s'", d.Name.Lexeme))
+		if mutTy == nil || mutTy.TKind == TyError {
+			tc.error(d.Name, fmt.Sprintf("cannot infer type for mut '%s'", d.Name.Lexeme))
 			return &Type{TKind: TyError}
 		}
 	}
 	if d.Type != nil {
 		declTy := tc.resolveType(d.Type)
-		if valTy != nil && !declTy.Equal(valTy) {
+		if mutTy != nil && !declTy.Equal(mutTy) {
 			tc.error(d.Name, fmt.Sprintf(
-				"type mismatch in val '%s': expected %s, got %s",
-				d.Name.Lexeme, declTy.String(), valTy.String()))
+				"type mismatch in mut '%s': expected %s, got %s",
+				d.Name.Lexeme, declTy.String(), mutTy.String()))
 			tc.env.Set(d.Name.Lexeme, declTy)
 			return &Type{TKind: TyError}
 		}
 		tc.env.Set(d.Name.Lexeme, declTy)
 		return declTy
 	}
-	tc.env.Set(d.Name.Lexeme, valTy)
-	return valTy
+	tc.env.Set(d.Name.Lexeme, mutTy)
+	return mutTy
 }
 
 func (tc *TypeChecker) visitFuncDecl(fn *parser.FuncDeclExpr) *Type {

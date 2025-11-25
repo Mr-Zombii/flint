@@ -46,6 +46,7 @@ func init() {
 			Description: "Start the Flint Language Server.",
 			Run: func(fs *flag.FlagSet) {
 				fs.Parse(os.Args[2:])
+				startLsp()
 			},
 		},
 		{

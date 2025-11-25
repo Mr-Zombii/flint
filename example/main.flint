@@ -1,89 +1,11 @@
 use flint/io
-use flint/str
-use flint/int
-use flint/float
 
-// ADT
-// pub type Result(ok, err) =
-//     | Ok(ok)
-//     | Err(err)
-
-// Record
 pub type User {
     id: Int, name: String, active: Bool
 }
 
-pub fn describe_angle(angle: Float) {
-    // Match expression
-    match angle {
-        | x if x < 0 -> "negative"
-        | 0 -> "zero"
-        | _ -> "positive"
-    }
-}
-
-pub fn main() {
-    mut angle: Float = 5.0
-    mut a = 'a'
-    true
-    mut x = m:sin(angle)
-    io:println("sin(" <> angle <> ") = " <> str:to_string(x))
-
-    mut desc = describe_angle(angle)
-    io:println("Angle is " <> desc)
-
-    // If expression
-    if x > 0 {
-        io:println("Sin is positive")
-    } else { 
-        io:println("Sin is negative")
-    }
-
-    // Using Pipeline operator
-    angle
-        |> m:sin
-        |> str:to_string
-        |> io:println
-
-    // Loops
-    for x in 0..10 {
-        io:println(x)
-    }
-
-    // Iterating list
-    for item in users {
-        io:println(item.name)
-    }
-
-    // Indexing
-    for i, item in users {
+pub fn main() Nil {
+    for i, item in User {
         io:println(i <> ": " <> item.name)
-    }
-
-    // Filter
-    for x in numbers where x > 10 {
-        io:println(x)
-    }
-
-    for s in names where str:starts_with(s, "a") {
-        io:println(s)
-    }
-
-    for x in xs where x > 0 {
-        for y in ys where y > 0 {
-            io:println("positive pair: " <> x <> ", " <> y)
-        }
-    }
-
-    for (name, score) in leaderboard where score >= 90 {
-        io:println(name <> " is top tier!")
-    }
-
-    for u in users where is_admin(u) {
-        io:println("admin: " <> u.name)
-    }
-
-    for Ok(user) in responses where user.active && user.id > 100 {
-        io:println("valid active: " <> user.name)
     }
 }
