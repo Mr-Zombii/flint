@@ -1,7 +1,7 @@
 package flint
 
-var Version = "0.1.0"
+import "flint/internal/version"
 
 func FullVersion() string {
-	return "Flint Version: " + Version
+	return version.FullVersion()
 }

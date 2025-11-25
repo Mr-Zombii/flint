@@ -10,11 +10,10 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         go: [1.25]
 
     steps:
@@ -28,4 +27,4 @@ jobs:
           cache: false
 
       - name: Build
-        run: go build -v ./cmd/flint/
+        run: bash scripts/build.sh
