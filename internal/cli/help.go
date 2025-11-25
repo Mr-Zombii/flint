@@ -2,23 +2,20 @@ package cli
 
 import "fmt"
 
-func PrintHelp() {
+func printHelp() {
 	fmt.Println("Usage:")
-	fmt.Println("  flint " + "<command> [options]")
+	fmt.Println("  flint <command> [options]")
 	fmt.Println()
 
 	fmt.Println("Commands:")
-
-	printCmd("run <file>", "Execute a Flint source file.")
-	printCmd("compile <file>", "Compile a Flint file to a target backend.")
-	printCmd("check <file>", "Type-check only; no execution.")
-	printCmd("version", "Print the Flint compiler version.")
-	printCmd("help", "Show this help message.")
+	for _, cmd := range commands {
+		printCmd(cmd.Name, cmd.Description)
+	}
 
 	fmt.Println()
-	fmt.Println("Tip: Run 'flint help <command>' for more info.")
+	fmt.Println("Use 'flint help <command>' for more details.")
 }
 
-func printCmd(cmd, desc string) {
-	fmt.Printf("  %-14s  %s\n", cmd, desc)
+func printCmd(name, desc string) {
+	fmt.Printf("  %-14s  %s\n", name, desc)
 }

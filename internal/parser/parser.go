@@ -12,11 +12,8 @@ type Parser struct {
 	errors []string
 }
 
-func New(tokens []lexer.Token) *Parser {
-	return &Parser{tokens: tokens, pos: 0, errors: []string{}}
-}
-
-func (p *Parser) ParseProgram() (*Program, []string) {
+func ParseProgram(tokens []lexer.Token) (*Program, []string) {
+	p := new(tokens)
 	out := &Program{Exprs: []Expr{}}
 	for p.cur().Kind != lexer.EndOfFile {
 		if p.cur().Kind == lexer.Comment {
@@ -31,6 +28,10 @@ func (p *Parser) ParseProgram() (*Program, []string) {
 		out.Exprs = append(out.Exprs, expr)
 	}
 	return out, p.errors
+}
+
+func new(tokens []lexer.Token) *Parser {
+	return &Parser{tokens: tokens, pos: 0, errors: []string{}}
 }
 
 func (p *Parser) parseExpression(minPrec int) Expr {
