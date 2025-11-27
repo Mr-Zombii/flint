@@ -36,7 +36,7 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: false # github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' # false
     steps:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
