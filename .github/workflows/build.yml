@@ -54,13 +54,13 @@ jobs:
           tag_name: "${{ env.FULL_VERSION }}"
           name: "${{ env.FULL_VERSION }}"
           files: |
-            dist/flint-linux-*-amd64
-            dist/flint-linux-*-arm
-            dist/flint-linux-*-arm64
-            dist/flint-darwin-*-amd64
-            dist/flint-darwin-*-arm64
-            dist/flint-windows-*-amd64.exe
-            dist/flint-windows-*-arm64.exe
+            dist/flint-linux-amd64
+            dist/flint-linux-arm
+            dist/flint-linux-arm64
+            dist/flint-darwin-amd64
+            dist/flint-darwin-arm64
+            dist/flint-windows-amd64.exe
+            dist/flint-windows-arm64.exe
             dist/flint-*-checksum.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
