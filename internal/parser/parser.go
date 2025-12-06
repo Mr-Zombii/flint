@@ -20,10 +20,14 @@ func ParseProgram(tokens []lexer.Token) (*Program, []string) {
 			p.eat()
 			continue
 		}
+		decorators := p.parseDecorators()
 		expr := p.parseExpression(0)
 		if expr == nil {
 			p.synchronize()
 			continue
+		}
+		if fn, ok := expr.(*FuncDeclExpr); ok {
+			fn.Decorators = decorators
 		}
 		out.Exprs = append(out.Exprs, expr)
 	}
@@ -412,10 +416,12 @@ func (p *Parser) parseFunc(pub bool) Expr {
 	if !ok {
 		return nil
 	}
+
 	if _, ok := p.expect(lexer.LeftParen); !ok {
 		p.synchronize()
 		return nil
 	}
+
 	params := []Param{}
 	if p.cur().Kind != lexer.RightParen {
 		for {
@@ -423,7 +429,6 @@ func (p *Parser) parseFunc(pub bool) Expr {
 			if !ok {
 				return nil
 			}
-
 			var typ Expr
 			if p.cur().Kind == lexer.Colon {
 				p.eat()
@@ -437,24 +442,29 @@ func (p *Parser) parseFunc(pub bool) Expr {
 			break
 		}
 	}
+
 	if _, ok := p.expect(lexer.RightParen); !ok {
 		p.synchronize()
 		return nil
 	}
+
 	var retType Expr
-	if p.cur().Kind != lexer.LeftBrace {
+	if p.cur().Kind != lexer.LeftBrace && p.cur().Kind != lexer.EndOfFile {
 		retType = p.parseType()
 	}
-	body := p.parseBlock()
-	if body == nil {
-		return nil
+
+	var body Expr
+	if p.cur().Kind == lexer.LeftBrace {
+		body = p.parseBlock()
 	}
+
 	return &FuncDeclExpr{
-		Pub:    pub,
-		Name:   nameTok,
-		Params: params,
-		Ret:    retType,
-		Body:   body,
+		Pub:        pub,
+		Name:       nameTok,
+		Params:     params,
+		Ret:        retType,
+		Body:       body,
+		Decorators: nil,
 	}
 }
 
@@ -761,4 +771,34 @@ func (p *Parser) recordTypeExpr(pub bool) Expr {
 		Body: body,
 		Pos:  nameTok,
 	}
+}
+
+func (p *Parser) parseDecorators() []Decorator {
+	decorators := []Decorator{}
+	for p.cur().Kind == lexer.At {
+		p.eat()
+		nameTok, ok := p.expect(lexer.Identifier)
+		if !ok {
+			p.errorAt(p.cur(), "expected decorator name after '@'")
+			break
+		}
+		args := []Expr{}
+		if p.cur().Kind == lexer.LeftParen {
+			p.eat()
+			for p.cur().Kind != lexer.RightParen && p.cur().Kind != lexer.EndOfFile {
+				arg := p.parseExpression(0)
+				if arg == nil {
+					p.errorAt(p.cur(), "invalid decorator argument")
+				} else {
+					args = append(args, arg)
+				}
+				if p.cur().Kind == lexer.Comma {
+					p.eat()
+				}
+			}
+			p.expect(lexer.RightParen)
+		}
+		decorators = append(decorators, Decorator{Name: nameTok.Lexeme, Args: args, Pos: nameTok})
+	}
+	return decorators
 }

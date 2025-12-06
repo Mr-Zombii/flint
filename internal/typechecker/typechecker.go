@@ -197,20 +197,21 @@ func (tc *TypeChecker) visitFuncDecl(fn *parser.FuncDeclExpr) *Type {
 	for i, p := range fn.Params {
 		tc.env.Set(p.Name.Lexeme, paramTypes[i])
 	}
-	bodyTy := tc.Check(fn.Body)
-	tc.env = oldEnv
-	if fn.Ret != nil {
-		if !bodyTy.Equal(retType) {
+	if fn.Body != nil {
+		bodyTy := tc.Check(fn.Body)
+		if fn.Ret != nil && !bodyTy.Equal(retType) {
 			tc.error(fn.Name,
 				fmt.Sprintf("function %s annotated return %s but body has type %s",
 					fn.Name.Lexeme, retType.String(), bodyTy.String()))
 			tc.env.Set(fn.Name.Lexeme, &Type{TKind: TyError})
+			tc.env = oldEnv
 			return &Type{TKind: TyError}
 		}
-		return fnType
+		if fn.Ret == nil {
+			fnType.Ret = bodyTy
+		}
 	}
-	fnType.Ret = bodyTy
-	tc.env.Set(fn.Name.Lexeme, fnType)
+	tc.env = oldEnv
 	return fnType
 }
 

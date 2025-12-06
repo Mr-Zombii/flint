@@ -185,12 +185,19 @@ func dump(e Expr, indent string, last bool) string {
 		)
 		var out strings.Builder
 		out.WriteString(line)
+		if len(n.Decorators) > 0 {
+			dLine, dNext := node(next, true, "Decorators")
+			out.WriteString("\n")
+			out.WriteString(dLine)
+			for i, dec := range n.Decorators {
+				out.WriteString(dump(&dec, dNext, i == len(n.Decorators)-1))
+			}
+		}
 		pLine, pNext := node(next, false, "Params")
 		out.WriteString(pLine)
 		for i, p := range n.Params {
 			paramLine, pIndent := node(pNext, i == len(n.Params)-1, "Param name="+p.Name.Lexeme)
 			out.WriteString(paramLine)
-
 			if p.Type != nil {
 				out.WriteString(dump(p.Type, pIndent, true))
 			}
@@ -256,6 +263,19 @@ func dump(e Expr, indent string, last bool) string {
 		if n.Alias != "" {
 			aLine, _ := node(next, true, "Alias "+n.Alias)
 			out.WriteString(aLine)
+		}
+		return out.String()
+	case *Decorator:
+		line, next := node(indent, last, "Decorator "+n.Name)
+		var out strings.Builder
+		out.WriteString(line)
+		if len(n.Args) > 0 {
+			argsLine, argsNext := node(next, true, "Args")
+			out.WriteString("\n")
+			out.WriteString(argsLine)
+			for i, arg := range n.Args {
+				out.WriteString(dump(arg, argsNext, i == len(n.Args)-1))
+			}
 		}
 		return out.String()
 	default:

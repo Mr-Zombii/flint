@@ -131,12 +131,13 @@ func (d *MutDeclExpr) NodeType() string {
 }
 
 type FuncDeclExpr struct {
-	Pub       bool
-	Recursion bool
-	Name      lexer.Token
-	Params    []Param
-	Ret       Expr
-	Body      Expr
+	Pub        bool
+	Recursion  bool
+	Name       lexer.Token
+	Params     []Param
+	Ret        Expr
+	Body       Expr
+	Decorators []Decorator
 }
 
 func (f *FuncDeclExpr) exprNode() {}
@@ -305,6 +306,17 @@ type TypeDeclExpr struct {
 func (t *TypeDeclExpr) exprNode() {}
 func (t *TypeDeclExpr) NodeType() string {
 	return "TypeDeclExpr"
+}
+
+type Decorator struct {
+	Name string
+	Args []Expr
+	Pos  lexer.Token
+}
+
+func (t *Decorator) exprNode() {}
+func (t *Decorator) NodeType() string {
+	return "Decorator"
 }
 
 type Program struct {

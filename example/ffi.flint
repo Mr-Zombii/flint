@@ -1,0 +1,2 @@
+@external(c, "flint_stdlib", "print")
+pub fn print(string: String) Nil
