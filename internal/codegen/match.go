@@ -3,7 +3,6 @@ package codegen
 import (
 	"flint/internal/parser"
 	"fmt"
-	"reflect"
 
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
@@ -26,15 +25,15 @@ func (cg *CodeGen) emitMatch(b *ir.Block, m *parser.MatchExpr, isTail bool) valu
 
 	checkList = append(checkList, b)
 
-	// wildCardName := fmt.Sprintf("match.%d.wild", matchId)
+	wildCardName := fmt.Sprintf("match.%d.wild", matchId)
 
 	for caseId, arm := range m.Arms {
 		var name string
-		// if arm.IsWildCardArm() {
-		// name = wildCardName
-		// } else {
-		name = fmt.Sprintf("match.%d.arm.%d", matchId, caseId)
-		// }
+		if arm.IsWildCardArm() {
+			name = wildCardName
+		} else {
+			name = fmt.Sprintf("match.%d.arm.%d", matchId, caseId)
+		}
 
 		armBlock := parent.NewBlock(name)
 		if caseId != 0 && !arm.IsWildCardArm() {
@@ -110,33 +109,19 @@ func (cg *CodeGen) emitMatch(b *ir.Block, m *parser.MatchExpr, isTail bool) valu
 		return nil
 	}
 
-	for _, v := range checkList {
-		if v != nil {
-			opLen := len(b.Term.Operands())
-			for i := range opLen {
-				op := *v.Term.Operands()[i]
-				if reflect.TypeOf(op) == reflect.TypeOf(mergeBlock) {
-					if op.(*ir.Block) == mergeBlock {
-						incomings = append(incomings, ir.NewIncoming(
-							constant.NewUndef(phiType),
-							v,
-						))
-					}
-				}
-			}
-		}
+	if referencesBlock(b, mergeBlock) {
+		incomings = append(incomings, ir.NewIncoming(
+			constant.NewUndef(phiType),
+			b,
+		))
 	}
 
-	opLen := len(b.Term.Operands())
-	for i := range opLen {
-		op := *b.Term.Operands()[i]
-		if reflect.TypeOf(op) == reflect.TypeOf(mergeBlock) {
-			if op.(*ir.Block) == mergeBlock {
-				incomings = append(incomings, ir.NewIncoming(
-					constant.NewUndef(phiType),
-					b,
-				))
-			}
+	for _, v := range checkList {
+		if referencesBlock(v, mergeBlock) {
+			incomings = append(incomings, ir.NewIncoming(
+				constant.NewUndef(phiType),
+				v,
+			))
 		}
 	}
 
