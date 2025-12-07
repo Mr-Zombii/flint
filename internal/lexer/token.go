@@ -95,7 +95,6 @@ const (
 	KwType
 	KwUse
 	KwVal
-	KwWhere
 )
 
 var KeywordMap = map[string]TokenKind{

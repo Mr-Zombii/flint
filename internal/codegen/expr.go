@@ -9,12 +9,12 @@ import (
 	"github.com/llir/llvm/ir/value"
 )
 
-func (cg *CodeGen) emitExpr(b *ir.Block, e parser.Expr) value.Value {
+func (cg *CodeGen) emitExpr(b *ir.Block, e parser.Expr, isTail bool) value.Value {
 	switch v := e.(type) {
 	case *parser.IntLiteral:
-		return constant.NewInt(types.I64, v.Value)
+		return constant.NewInt(cg.platformIntType(), v.Value)
 	case *parser.FloatLiteral:
-		return constant.NewFloat(types.Double, v.Value)
+		return constant.NewFloat(cg.platformFloatType(), v.Value)
 	case *parser.BoolLiteral:
 		if v.Value {
 			return constant.NewInt(types.I1, 1)
@@ -25,7 +25,7 @@ func (cg *CodeGen) emitExpr(b *ir.Block, e parser.Expr) value.Value {
 	case *parser.StringLiteral:
 		return cg.emitString(v)
 	case *parser.CallExpr:
-		return cg.emitCall(b, v)
+		return cg.emitCall(b, v, isTail)
 	case *parser.Identifier:
 		ptr := cg.locals[v.Name]
 		if ptr == nil {
@@ -35,7 +35,9 @@ func (cg *CodeGen) emitExpr(b *ir.Block, e parser.Expr) value.Value {
 	case *parser.InfixExpr:
 		return cg.emitInfix(b, v)
 	case *parser.IfExpr:
-		return cg.emitIf(b, v)
+		return cg.emitIf(b, v, isTail)
+	case *parser.MatchExpr:
+		return cg.emitMatch(b, v, isTail)
 	default:
 		panic("unsupported expression type")
 	}

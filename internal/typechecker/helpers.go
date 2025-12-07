@@ -1,6 +1,10 @@
 package typechecker
 
-import "flint/internal/parser"
+import (
+	"flint/internal/parser"
+)
+
+var PlatformIntBits int = 0
 
 func (tc *TypeChecker) resolveType(t parser.Expr) *Type {
 	switch typ := t.(type) {

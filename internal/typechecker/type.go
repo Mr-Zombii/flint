@@ -2,6 +2,7 @@ package typechecker
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -32,7 +33,10 @@ const (
 func (t Type) String() string {
 	switch t.TKind {
 	case TyInt:
-		return "Int"
+		if PlatformIntBits == 32 {
+			return "Int32"
+		}
+		return "Int64"
 	case TyFloat:
 		return "Float"
 	case TyBool:
@@ -115,5 +119,13 @@ func (t *Type) Equal(u *Type) bool {
 		return t.Elem.Equal(u.Elem)
 	default:
 		return true
+	}
+}
+
+func init() {
+	if strconv.IntSize == 32 {
+		PlatformIntBits = 32
+	} else {
+		PlatformIntBits = 64
 	}
 }

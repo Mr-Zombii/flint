@@ -10,8 +10,8 @@ import (
 )
 
 func (cg *CodeGen) emitInfix(b *ir.Block, e *parser.InfixExpr) value.Value {
-	l := cg.emitExpr(b, e.Left)
-	r := cg.emitExpr(b, e.Right)
+	l := cg.emitExpr(b, e.Left, false)
+	r := cg.emitExpr(b, e.Right, false)
 	switch e.Operator.Kind {
 	case lexer.Plus:
 		return b.NewAdd(l, r)
