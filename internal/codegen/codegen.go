@@ -266,9 +266,9 @@ func (cg *CodeGen) emitMatchCond(b *ir.Block, scr value.Value, pat parser.Expr, 
 		if p.Pos.Kind == lexer.Underscore {
 			baseCond = constant.True
 		} else {
-			// alloc := b.NewAlloca(scr.Type())
-			// b.NewStore(scr, alloc)
-			// cg.locals[p.Name] = alloc
+			alloc := b.NewAlloca(scr.Type())
+			b.NewStore(scr, alloc)
+			cg.locals[p.Name] = alloc
 			baseCond = constant.True
 		}
 	default:
@@ -276,17 +276,17 @@ func (cg *CodeGen) emitMatchCond(b *ir.Block, scr value.Value, pat parser.Expr, 
 	}
 	// disable guards for now
 
-	// if guard != nil {
-	// 	guardVal := cg.emitExpr(b, guard, false)
-	// 	if _, ok := guardVal.Type().(*types.IntType); ok {
-	// 		if guardVal.Type() != types.I1 {
-	// 			guardVal = b.NewTrunc(guardVal, types.I1)
-	// 		}
-	// 	} else {
-	// 		panic("guard expression is not a boolean")
-	// 	}
-	// 	baseCond = b.NewAnd(baseCond, guardVal)
-	// }
+	if guard != nil {
+		guardVal := cg.emitExpr(b, guard, false)
+		if _, ok := guardVal.Type().(*types.IntType); ok {
+			if guardVal.Type() != types.I1 {
+				guardVal = b.NewTrunc(guardVal, types.I1)
+			}
+		} else {
+			panic("guard expression is not a boolean")
+		}
+		baseCond = b.NewAnd(baseCond, guardVal)
+	}
 	return baseCond
 }
 

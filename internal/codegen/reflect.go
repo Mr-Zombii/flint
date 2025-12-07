@@ -29,3 +29,17 @@ func parentBlockOfValue(v value.Value) *ir.Block {
 	}
 	return parent
 }
+
+func referencesBlock(b *ir.Block, blockToFind *ir.Block) bool {
+	if b != nil && b.Term != nil {
+		opLen := len(b.Term.Operands())
+		for i := range opLen {
+			op := *b.Term.Operands()[i]
+			v, ok := op.(*ir.Block)
+			if ok && v == blockToFind {
+				return true
+			}
+		}
+	}
+	return false
+}

@@ -1,3 +1,6 @@
 dist/
 example/ffi.go
 example/ffi_go.flint
+*.exe
+*.out
+*.ll

@@ -2,7 +2,6 @@ package codegen
 
 import (
 	"flint/internal/parser"
-	"reflect"
 
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
@@ -32,10 +31,7 @@ func (cg *CodeGen) emitExpr(b *ir.Block, e parser.Expr, isTail bool) value.Value
 		if ptr == nil {
 			panic("undefined variable: " + v.Name)
 		}
-		if reflect.TypeOf(ptr.Type()).String() == "*types.PointerType" {
-			return b.NewLoad(ptr.Type().(*types.PointerType).ElemType, ptr)
-		}
-		return b.NewLoad(ptr.Type(), ptr)
+		return b.NewLoad(ptr.Type().(*types.PointerType).ElemType, ptr)
 	case *parser.InfixExpr:
 		return cg.emitInfix(b, v)
 	case *parser.IfExpr:

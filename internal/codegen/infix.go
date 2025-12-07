@@ -52,7 +52,7 @@ func (cg *CodeGen) emitInfix(b *ir.Block, e *parser.InfixExpr) value.Value {
 	case lexer.GreaterEqualDot:
 		return b.NewFCmp(enum.FPredOGE, l, r)
 	case lexer.LtGt:
-		return nil // Add string
+		return nil
 	case lexer.AmperAmper:
 		return b.NewAnd(l, r)
 	case lexer.VbarVbar:
