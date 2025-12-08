@@ -4,9 +4,9 @@ pub fn assert(cond: Bool) Nil
 @external(c, "flint_stdlib", "print")
 pub fn print(string: String) Nil
 
-pub fn println(v: String) Nil {
-    print(v)
-    print("\n")
+fn loop() Nil {
+    print("e")
+    loop()
 }
 
 pub fn main() Nil {

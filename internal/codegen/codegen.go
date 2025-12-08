@@ -81,7 +81,7 @@ func (cg *CodeGen) emitFunction(fn *parser.FuncDeclExpr) {
 		return
 	}
 	block := fn.Body.(*parser.BlockExpr)
-	lastVal := cg.emitBlock(entry, block, false)
+	lastVal := cg.emitBlock(entry, block, fn.Recursion)
 	retTy := mainFn.Sig.RetType
 	if name == "main" {
 		exit := mainFn.NewBlock("main.exit")
