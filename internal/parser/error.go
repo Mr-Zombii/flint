@@ -11,7 +11,7 @@ func (p *Parser) errorAt(tok lexer.Token, msg string) {
 	caret := makeCaret(tok.Column)
 
 	report := fmt.Sprintf(
-		"error: %s\n  --> %s:%d:%d\n   |\n%2d | %s\n   | %s\n",
+		"%s\n  --> %s:%d:%d\n   |\n%2d | %s\n   | %s\n",
 		msg,
 		tok.File,
 		tok.Line,

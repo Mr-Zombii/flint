@@ -1,7 +1,6 @@
 package lexer
 
 import (
-	"flint/internal/color"
 	"fmt"
 	"os"
 	"strings"
@@ -13,14 +12,12 @@ func (l *Lexer) error(msg string) {
 
 	fmt.Printf(
 		"%s: %s\n  %s %s:%d:%d\n   %s\n%2d | %s\n   | %s\n",
-		color.BoldText("error"),
-		color.RedText(msg),
-		color.CyanText("-->"),
-		color.BlueText(l.fileName), l.lineNumber, l.columnNumber,
-		color.YellowText("|"),
-		l.lineNumber,
-		color.BoldText(line),
-		color.GreenText(caret),
+		"error",
+		msg,
+		"-->",
+		l.fileName, l.lineNumber, l.columnNumber,
+		"|",
+		l.lineNumber, line, caret,
 	)
 
 	os.Exit(1)

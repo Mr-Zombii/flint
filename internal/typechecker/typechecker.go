@@ -37,8 +37,7 @@ func (tc *TypeChecker) Check(expr parser.Expr) *Type {
 		switch expr.(type) {
 		case *parser.VarDeclExpr, *parser.IfExpr,
 			*parser.MatchExpr, *parser.PipelineExpr:
-			tc.error(lexer.Token{}, fmt.Sprintf("%T is not allowed at top-level; must be inside a function/block", expr))
-			return &Type{TKind: TyError}
+			return tc.errorAt(lexer.Token{}, fmt.Sprintf("%T is not allowed at top-level; must be inside a function/block", expr))
 		}
 	}
 	switch e := expr.(type) {
@@ -98,51 +97,34 @@ func (tc *TypeChecker) Check(expr parser.Expr) *Type {
 func (tc *TypeChecker) visitIdentifier(id *parser.Identifier) *Type {
 	ty, ok := tc.env.Get(id.Name)
 	if !ok {
-		tc.error(id.Pos, "undefined variable: "+id.Name)
-		return &Type{TKind: TyError}
+		return tc.errorAt(id.Pos, fmt.Sprintf("undefined variable: '%s'", id.Name))
 	}
 	return ty
 }
 
 func (tc *TypeChecker) visitVarDecl(d *parser.VarDeclExpr) *Type {
 	if _, exists := tc.env.currentScopeGet(d.Name.Lexeme); exists {
-		tc.error(d.Name, fmt.Sprintf("variable '%s' already declared in this scope", d.Name.Lexeme))
-		return &Type{TKind: TyError}
+		return tc.errorAt(d.Name, fmt.Sprintf(
+			"variable '%s' already declared in this scope", d.Name.Lexeme))
 	}
 	var varTy *Type
 	if d.Value != nil {
-		switch expr := d.Value.(type) {
-		case *parser.ListExpr:
-			varTy = tc.visitList(expr, nil)
-		case *parser.TupleExpr:
-			elemTypes := make([]*Type, len(expr.Elements))
-			for i, e := range expr.Elements {
-				t := tc.Check(e)
-				if t == nil || t.TKind == TyError {
-					tc.error(d.Name, fmt.Sprintf("cannot infer type for tuple element %d", i+1))
-					return &Type{TKind: TyError}
-				}
-				elemTypes[i] = t
-			}
-			varTy = &Type{TKind: TyTuple, TElems: elemTypes}
-		default:
-			varTy = tc.Check(expr)
-		}
+		varTy = tc.Check(d.Value)
 		if varTy == nil || varTy.TKind == TyError {
-			tc.error(d.Name, fmt.Sprintf("cannot infer type for %s '%s'",
+			return tc.errorAt(d.Name, fmt.Sprintf(
+				"cannot infer type for %s '%s'",
 				func() string {
 					if d.Mutable {
 						return "mut"
 					}
 					return "val"
 				}(), d.Name.Lexeme))
-			return &Type{TKind: TyError}
 		}
 	}
 	if d.Type != nil {
 		declTy := tc.resolveType(d.Type)
 		if varTy != nil && !declTy.Equal(varTy) {
-			tc.error(d.Name, fmt.Sprintf(
+			return tc.errorAt(d.Name, fmt.Sprintf(
 				"type mismatch in %s '%s': expected %s, got %s",
 				func() string {
 					if d.Mutable {
@@ -150,8 +132,6 @@ func (tc *TypeChecker) visitVarDecl(d *parser.VarDeclExpr) *Type {
 					}
 					return "val"
 				}(), d.Name.Lexeme, declTy.String(), varTy.String()))
-			tc.env.Set(d.Name.Lexeme, declTy)
-			return &Type{TKind: TyError}
 		}
 		tc.env.SetVar(d.Name.Lexeme, declTy, d.Mutable)
 		return declTy
@@ -162,17 +142,13 @@ func (tc *TypeChecker) visitVarDecl(d *parser.VarDeclExpr) *Type {
 
 func (tc *TypeChecker) visitFuncDecl(fn *parser.FuncDeclExpr) *Type {
 	if _, exists := tc.env.currentScopeGet(fn.Name.Lexeme); exists {
-		tc.error(fn.Name, fmt.Sprintf("function '%s' already declared in this scope", fn.Name.Lexeme))
-		return &Type{TKind: TyError}
+		return tc.errorAt(fn.Name, fmt.Sprintf("function '%s' already declared in this scope", fn.Name.Lexeme))
 	}
 	paramTypes := make([]*Type, len(fn.Params))
 	for i, p := range fn.Params {
 		if p.Type == nil {
-			tc.error(p.Name,
-				fmt.Sprintf("parameter '%s' missing type annotation", p.Name.Lexeme))
-			return &Type{TKind: TyError}
+			return tc.errorAt(p.Name, fmt.Sprintf("parameter '%s' missing type annotation", p.Name.Lexeme))
 		}
-
 		pt := tc.resolveType(p.Type)
 		if pt.TKind == TyError {
 			return &Type{TKind: TyError}
@@ -202,12 +178,7 @@ func (tc *TypeChecker) visitFuncDecl(fn *parser.FuncDeclExpr) *Type {
 	if fn.Body != nil {
 		bodyTy := tc.Check(fn.Body)
 		if fn.Ret != nil && !bodyTy.Equal(retType) {
-			tc.error(fn.Name,
-				fmt.Sprintf("function %s annotated return %s but body has type %s",
-					fn.Name.Lexeme, retType.String(), bodyTy.String()))
-			tc.env.Set(fn.Name.Lexeme, &Type{TKind: TyError})
-			tc.env = oldEnv
-			return &Type{TKind: TyError}
+			return tc.errorAt(fn.Name, fmt.Sprintf("function '%s' annotated return %s but body has type %s", fn.Name.Lexeme, retType.String(), bodyTy.String()))
 		}
 		if fn.Ret == nil {
 			fnType.Ret = bodyTy
@@ -220,20 +191,15 @@ func (tc *TypeChecker) visitFuncDecl(fn *parser.FuncDeclExpr) *Type {
 func (tc *TypeChecker) visitCall(c *parser.CallExpr) *Type {
 	calleeTy := tc.Check(c.Callee)
 	if calleeTy.TKind != TyFunc {
-		tc.error(c.Pos, fmt.Sprintf("attempt to call non-function value of type %s", calleeTy.String()))
-		return &Type{TKind: TyError}
+		return tc.errorAt(c.Pos, fmt.Sprintf("attempt to call non-function value of type %s", calleeTy.String()))
 	}
 	if len(c.Args) != len(calleeTy.Params) {
-		tc.error(c.Pos, fmt.Sprintf("wrong number of arguments: expected %d, got %d",
-			len(calleeTy.Params), len(c.Args)))
-		return &Type{TKind: TyError}
+		return tc.errorAt(c.Pos, fmt.Sprintf("wrong number of arguments: expected %d, got %d", len(calleeTy.Params), len(c.Args)))
 	}
 	for i, a := range c.Args {
 		argTy := tc.Check(a)
 		if !argTy.Equal(calleeTy.Params[i]) {
-			tc.error(c.Pos, fmt.Sprintf("argument %d expected %s, got %s",
-				i, calleeTy.Params[i].String(), argTy.String()))
-			return &Type{TKind: TyError}
+			return tc.errorAt(c.Pos, fmt.Sprintf("argument %d expected %s, got %s", i+1, calleeTy.Params[i].String(), argTy.String()))
 		}
 	}
 	return calleeTy.Ret
@@ -254,14 +220,10 @@ func (tc *TypeChecker) visitPrefix(e *parser.PrefixExpr) *Type {
 	arg := tc.Check(e.Right)
 	sig, ok := unaryOps[e.Operator.Kind]
 	if !ok {
-		tc.error(e.Operator, "unknown unary operator")
-		return &Type{TKind: TyError}
+		return tc.errorAt(e.Operator, "unknown unary operator")
 	}
 	if arg.TKind != sig.Arg.TKind {
-		tc.error(e.Operator,
-			fmt.Sprintf("invalid operand type for '%s': %s",
-				e.Operator.Lexeme, arg.String()))
-		return &Type{TKind: TyError}
+		return tc.errorAt(e.Operator, fmt.Sprintf("invalid operand type for '%s': %s", e.Operator.Lexeme, arg.String()))
 	}
 	out := sig.Out
 	return &out
@@ -272,8 +234,7 @@ func (tc *TypeChecker) visitInfix(e *parser.InfixExpr) *Type {
 	right := tc.Check(e.Right)
 	sigs, ok := binOps[e.Operator.Kind]
 	if !ok {
-		tc.error(e.Operator, "unknown operator")
-		return &Type{TKind: TyError}
+		return tc.errorAt(e.Operator, "unknown operator")
 	}
 	for _, sig := range sigs {
 		if left.TKind == sig.Left.TKind && right.TKind == sig.Right.TKind {
@@ -281,18 +242,13 @@ func (tc *TypeChecker) visitInfix(e *parser.InfixExpr) *Type {
 			return &out
 		}
 	}
-	tc.error(e.Operator,
-		fmt.Sprintf("invalid operands for '%s': %s and %s",
-			e.Operator.Lexeme, left.String(), right.String()))
-
-	return &Type{TKind: TyError}
+	return tc.errorAt(e.Operator, fmt.Sprintf("invalid operands for '%s': %s and %s", e.Operator.Lexeme, left.String(), right.String()))
 }
 
 func (tc *TypeChecker) visitUse(u *parser.UseExpr) *Type {
 	modEnv, ok := getModule(u.Path)
 	if !ok {
-		tc.error(u.Pos, fmt.Sprintf("cannot find module %s", strings.Join(u.Path, "/")))
-		return &Type{TKind: TyError}
+		return tc.errorAt(u.Pos, fmt.Sprintf("cannot find module %s", strings.Join(u.Path, "/")))
 	}
 	if len(u.Members) == 0 {
 		name := u.Alias
@@ -304,7 +260,7 @@ func (tc *TypeChecker) visitUse(u *parser.UseExpr) *Type {
 		for _, m := range u.Members {
 			ty, ok := modEnv.Get(m)
 			if !ok {
-				tc.error(u.Pos, fmt.Sprintf("module %s has no member %s", strings.Join(u.Path, "/"), m))
+				tc.errorAt(u.Pos, fmt.Sprintf("module %s has no member %s", strings.Join(u.Path, "/"), m))
 				continue
 			}
 			tc.env.Set(m, ty)
@@ -316,18 +272,15 @@ func (tc *TypeChecker) visitUse(u *parser.UseExpr) *Type {
 func (tc *TypeChecker) visitQualified(q *parser.QualifiedExpr) *Type {
 	leftIdent, ok := q.Left.(*parser.Identifier)
 	if !ok {
-		tc.error(q.Pos, "expected module identifier on the left of ':'")
-		return &Type{TKind: TyError}
+		return tc.errorAt(q.Pos, "expected module identifier on the left of ':'")
 	}
 	modEnv, ok := tc.env.modules[leftIdent.Name]
 	if !ok {
-		tc.error(q.Pos, fmt.Sprintf("unknown module: %s", leftIdent.Name))
-		return &Type{TKind: TyError}
+		return tc.errorAt(q.Pos, fmt.Sprintf("unknown module: %s", leftIdent.Name))
 	}
 	ty, ok := modEnv.Get(q.Right.Lexeme)
 	if !ok {
-		tc.error(q.Pos, fmt.Sprintf("module %s has no member %s", leftIdent.Name, q.Right.Lexeme))
-		return &Type{TKind: TyError}
+		return tc.errorAt(q.Pos, fmt.Sprintf("module %s has no member %s", leftIdent.Name, q.Right.Lexeme))
 	}
 	return ty
 }
@@ -335,18 +288,13 @@ func (tc *TypeChecker) visitQualified(q *parser.QualifiedExpr) *Type {
 func (tc *TypeChecker) visitIf(i *parser.IfExpr) *Type {
 	condTy := tc.Check(i.Cond)
 	if condTy.TKind != TyBool {
-		tc.error(i.Pos, fmt.Sprintf(
-			"if condition must be Bool, got %s", condTy.String()))
-		return &Type{TKind: TyError}
+		return tc.errorAt(i.Pos, fmt.Sprintf("if condition must be Bool, got %s", condTy.String()))
 	}
 	thenTy := tc.Check(i.Then)
 	if i.Else != nil {
 		elseTy := tc.Check(i.Else)
 		if !thenTy.Equal(elseTy) {
-			tc.error(i.Pos, fmt.Sprintf(
-				"then branch has type %s but else branch has type %s",
-				thenTy.String(), elseTy.String()))
-			return &Type{TKind: TyError}
+			return tc.errorAt(i.Pos, fmt.Sprintf("then branch has type %s but else branch has type %s", thenTy.String(), elseTy.String()))
 		}
 	}
 	return thenTy
@@ -369,31 +317,20 @@ func (tc *TypeChecker) visitMatch(m *parser.MatchExpr) *Type {
 		default:
 			patternTy := tc.Check(arm.Pattern)
 			if !patternTy.Equal(valueTy) {
-				tc.error(arm.Pos, fmt.Sprintf(
-					"pattern type %s does not match value type %s",
-					patternTy.String(), valueTy.String()))
-				tc.env = oldEnv
-				return &Type{TKind: TyError}
+				return tc.errorAt(arm.Pos, fmt.Sprintf("pattern type %s does not match value type %s", patternTy.String(), valueTy.String()))
 			}
 		}
 		if arm.Guard != nil {
 			guardTy := tc.Check(arm.Guard)
 			if guardTy.TKind != TyBool {
-				tc.error(arm.Pos, fmt.Sprintf(
-					"guard must be Bool, got %s", guardTy.String()))
-				tc.env = oldEnv
-				return &Type{TKind: TyError}
+				return tc.errorAt(arm.Pos, fmt.Sprintf("guard must be Bool, got %s", guardTy.String()))
 			}
 		}
 		bodyTy := tc.Check(arm.Body)
 		if armType == nil {
 			armType = bodyTy
 		} else if !armType.Equal(bodyTy) {
-			tc.error(arm.Pos, fmt.Sprintf(
-				"match arm has type %s, expected %s",
-				bodyTy.String(), armType.String()))
-			tc.env = oldEnv
-			return &Type{TKind: TyError}
+			return tc.errorAt(arm.Pos, fmt.Sprintf("match arm has type %s, expected %s", bodyTy.String(), armType.String()))
 		}
 		tc.env = oldEnv
 	}
@@ -412,17 +349,13 @@ func (tc *TypeChecker) visitPipeline(p *parser.PipelineExpr) *Type {
 	case *parser.Identifier:
 		fnTy, ok := tc.env.Get(r.Name)
 		if !ok {
-			tc.error(r.Pos, "undefined function: "+r.Name)
-			return &Type{TKind: TyError}
+			return tc.errorAt(r.Pos, "undefined function: "+r.Name)
 		}
 		if fnTy.TKind != TyFunc || len(fnTy.Params) == 0 {
-			tc.error(r.Pos, fmt.Sprintf("cannot pipe to non-function or function with no parameters: %s", r.Name))
-			return &Type{TKind: TyError}
+			return tc.errorAt(r.Pos, fmt.Sprintf("cannot pipe to non-function or function with no parameters: %s", r.Name))
 		}
 		if !fnTy.Params[0].Equal(leftTy) {
-			tc.error(r.Pos, fmt.Sprintf("type mismatch in pipeline: expected %s, got %s",
-				fnTy.Params[0].String(), leftTy.String()))
-			return &Type{TKind: TyError}
+			return tc.errorAt(r.Pos, fmt.Sprintf("type mismatch in pipeline: expected %s, got %s", fnTy.Params[0].String(), leftTy.String()))
 		}
 		return fnTy.Ret
 	case *parser.CallExpr:
@@ -434,8 +367,7 @@ func (tc *TypeChecker) visitPipeline(p *parser.PipelineExpr) *Type {
 		}
 		return tc.Check(call)
 	default:
-		tc.error(p.Pos, "right side of pipeline must be a function or call")
-		return &Type{TKind: TyError}
+		return tc.errorAt(p.Pos, "right side of pipeline must be a function or call")
 	}
 }
 
@@ -457,8 +389,7 @@ func (tc *TypeChecker) visitList(l *parser.ListExpr, annotated *Type) *Type {
 			for i, e := range tup.Elements {
 				subTy := tc.Check(e)
 				if subTy == nil || subTy.TKind == TyError {
-					tc.error(l.Pos, "cannot infer element type for tuple in list")
-					return &Type{TKind: TyError}
+					return tc.errorAt(l.Pos, "cannot infer element type for tuple in list")
 				}
 				tElems[i] = subTy
 			}
@@ -466,8 +397,7 @@ func (tc *TypeChecker) visitList(l *parser.ListExpr, annotated *Type) *Type {
 		default:
 			expected = tc.Check(first)
 			if expected == nil || expected.TKind == TyError {
-				tc.error(l.Pos, "cannot infer element type for list (first element error)")
-				return &Type{TKind: TyError}
+				return tc.errorAt(l.Pos, "cannot infer element type for list (first element error)")
 			}
 		}
 	}
@@ -475,24 +405,15 @@ func (tc *TypeChecker) visitList(l *parser.ListExpr, annotated *Type) *Type {
 		for i, e := range l.Elements {
 			tup, ok := e.(*parser.TupleExpr)
 			if !ok {
-				tc.error(l.Pos, fmt.Sprintf(
-					"element %d: expected tuple %s, got %s",
-					i+1, expected.String(), tc.Check(e).String()))
-				return &Type{TKind: TyError}
+				return tc.errorAt(l.Pos, fmt.Sprintf("element %d: expected tuple %s, got %s", i+1, expected.String(), tc.Check(e).String()))
 			}
 			if len(tup.Elements) != len(expected.TElems) {
-				tc.error(tup.Pos, fmt.Sprintf(
-					"element %d: expected tuple of length %d, got %d",
-					i+1, len(expected.TElems), len(tup.Elements)))
-				return &Type{TKind: TyError}
+				return tc.errorAt(tup.Pos, fmt.Sprintf("element %d: expected tuple of length %d, got %d", i+1, len(expected.TElems), len(tup.Elements)))
 			}
 			for k, sub := range tup.Elements {
 				subTy := tc.Check(sub)
 				if !expected.TElems[k].Equal(subTy) {
-					tc.error(l.Pos, fmt.Sprintf(
-						"element %d.%d: expected %s, got %s",
-						i+1, k+1, expected.TElems[k].String(), subTy.String()))
-					return &Type{TKind: TyError}
+					return tc.errorAt(l.Pos, fmt.Sprintf("element %d.%d: expected %s, got %s", i+1, k+1, expected.TElems[k].String(), subTy.String()))
 				}
 			}
 		}
@@ -500,10 +421,7 @@ func (tc *TypeChecker) visitList(l *parser.ListExpr, annotated *Type) *Type {
 		for i, e := range l.Elements {
 			ty := tc.Check(e)
 			if !expected.Equal(ty) {
-				tc.error(l.Pos, fmt.Sprintf(
-					"element %d type %s does not match expected type %s",
-					i+1, ty.String(), expected.String()))
-				return &Type{TKind: TyError}
+				return tc.errorAt(l.Pos, fmt.Sprintf("element %d type %s does not match expected type %s", i+1, ty.String(), expected.String()))
 			}
 		}
 	}
@@ -513,19 +431,14 @@ func (tc *TypeChecker) visitList(l *parser.ListExpr, annotated *Type) *Type {
 func (tc *TypeChecker) visitAssign(a *parser.AssignExpr) *Type {
 	varInfo, ok := tc.env.GetVar(a.Name.Name)
 	if !ok {
-		tc.error(a.Pos, fmt.Sprintf("undefined variable '%s'", a.Name.Name))
-		return &Type{TKind: TyError}
+		return tc.errorAt(a.Pos, fmt.Sprintf("undefined variable '%s'", a.Name.Name))
 	}
 	if !varInfo.Mutable {
-		tc.error(a.Pos, fmt.Sprintf("cannot assign to immutable variable '%s'", a.Name.Name))
-		return &Type{TKind: TyError}
+		return tc.errorAt(a.Pos, fmt.Sprintf("cannot assign to immutable variable '%s'", a.Name.Name))
 	}
 	valueTy := tc.Check(a.Value)
 	if !varInfo.Ty.Equal(valueTy) {
-		tc.error(a.Pos, fmt.Sprintf(
-			"type mismatch in assignment to '%s': expected %s, got %s",
-			a.Name.Name, varInfo.Ty.String(), valueTy.String()))
-		return &Type{TKind: TyError}
+		return tc.errorAt(a.Pos, fmt.Sprintf("type mismatch in assignment to '%s': expected %s, got %s", a.Name.Name, varInfo.Ty.String(), valueTy.String()))
 	}
 	tc.env.SetVar(a.Name.Name, valueTy, true)
 	return valueTy
@@ -535,9 +448,7 @@ func (tc *TypeChecker) visitIndex(idx *parser.IndexExpr) *Type {
 	targetTy := tc.Check(idx.Target)
 	indexTy := tc.Check(idx.Index)
 	if indexTy.TKind != TyInt {
-		tc.error(idx.Pos, fmt.Sprintf(
-			"index must be Int, got %s", indexTy.String()))
-		return &Type{TKind: TyError}
+		return tc.errorAt(idx.Pos, fmt.Sprintf("index must be Int, got %s", indexTy.String()))
 	}
 	switch targetTy.TKind {
 	case TyList:
@@ -550,14 +461,10 @@ func (tc *TypeChecker) visitIndex(idx *parser.IndexExpr) *Type {
 	case TyTuple:
 		idxLit, ok := idx.Index.(*parser.IntLiteral)
 		if !ok {
-			tc.error(idx.Pos, "tuple index must be a constant integer literal")
-			return &Type{TKind: TyError}
+			return tc.errorAt(idx.Pos, "tuple index must be a constant integer literal")
 		}
 		if idxLit.Value < 0 || idxLit.Value >= int64(len(targetTy.TElems)) {
-			tc.error(idx.Pos, fmt.Sprintf(
-				"tuple index out of bounds: %d (tuple length %d)",
-				idxLit.Value, len(targetTy.TElems)))
-			return &Type{TKind: TyError}
+			return tc.errorAt(idx.Pos, fmt.Sprintf("tuple index out of bounds: %d (tuple length %d)", idxLit.Value, len(targetTy.TElems)))
 		}
 		return targetTy.TElems[idxLit.Value]
 	default:
