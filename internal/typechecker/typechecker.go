@@ -88,6 +88,8 @@ func (tc *TypeChecker) Check(expr parser.Expr) *Type {
 		return tc.visitList(e, nil)
 	case *parser.AssignExpr:
 		return tc.visitAssign(e)
+	case *parser.IndexExpr:
+		return tc.visitIndex(e)
 	default:
 		return &Type{TKind: TyError}
 	}
@@ -508,6 +510,33 @@ func (tc *TypeChecker) visitAssign(a *parser.AssignExpr) *Type {
 	}
 	tc.env.SetVar(a.Name.Name, valueTy, true)
 	return valueTy
+}
+
+func (tc *TypeChecker) visitIndex(idx *parser.IndexExpr) *Type {
+	targetTy := tc.Check(idx.Target)
+	if targetTy.TKind != TyList && targetTy.TKind != TyString {
+		tc.error(idx.Pos, fmt.Sprintf(
+			"cannot index type %s", targetTy.String()))
+		return &Type{TKind: TyError}
+	}
+
+	indexTy := tc.Check(idx.Index)
+	if indexTy.TKind != TyInt {
+		tc.error(idx.Pos, fmt.Sprintf(
+			"index must be Int, got %s", indexTy.String()))
+		return &Type{TKind: TyError}
+	}
+	switch targetTy.TKind {
+	case TyList:
+		if targetTy.Elem != nil {
+			return targetTy.Elem
+		}
+		return &Type{TKind: TyNil}
+	case TyString:
+		return &Type{TKind: TyByte}
+	default:
+		return &Type{TKind: TyError}
+	}
 }
 
 // TODO: Add records

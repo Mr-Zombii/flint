@@ -1,17 +1,5 @@
-@external(c, "flint_stdlib", "assert")
-pub fn assert(cond: Bool) Nil
-
-@external(c, "flint_stdlib", "print")
-pub fn print(string: String) Nil
-
-fn loop() Nil {
-    print("e")
-    loop()
-}
-
-pub fn main() Nil {
-    mut x: String = "Hi Universe!"
-    print(x)
-    x = "Hello World!"
-    print(x)
+pub fn main() Int {
+    val x: List(Int) = [1, 2, 3]
+    val y: Int = x[1]
+    y
 }

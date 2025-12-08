@@ -20,10 +20,6 @@ extern void assert(bool cond)
 
 extern char *to_string(int64_t i)
 {
-	char *buffer = (char *)malloc(32);
-	if (!buffer)
-		return NULL;
+	static char buffer[32];
 	sprintf(buffer, "%lld", (long long)i);
-    free(buffer);
 	return buffer;
-}

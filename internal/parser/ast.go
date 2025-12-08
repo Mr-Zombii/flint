@@ -324,6 +324,17 @@ func (a *AssignExpr) NodeType() string {
 	return "AssignExpr"
 }
 
+type IndexExpr struct {
+	Target Expr
+	Index  Expr
+	Pos    lexer.Token
+}
+
+func (i *IndexExpr) exprNode() {}
+func (i *IndexExpr) NodeType() string {
+	return "IndexExpr"
+}
+
 type Program struct {
 	Exprs []Expr
 }

@@ -110,12 +110,10 @@ func dump(e Expr, indent string, last bool) string {
 		out.WriteString(cLine)
 		out.WriteString(dump(n.Cond, cNext, true))
 		tLine, tNext := node(next, n.Else == nil, "Then")
-		out.WriteString("\n")
 		out.WriteString(tLine)
 		out.WriteString(dump(n.Then, tNext, true))
 		if n.Else != nil {
 			eLine, eNext := node(next, true, "Else")
-			out.WriteString("\n")
 			out.WriteString(eLine)
 			out.WriteString(dump(n.Else, eNext, true))
 		}
@@ -128,7 +126,6 @@ func dump(e Expr, indent string, last bool) string {
 		out.WriteString(vLine)
 		out.WriteString(dump(n.Value, vNext, true))
 		aLine, aNext := node(next, true, "Arms")
-		out.WriteString("\n")
 		out.WriteString(aLine)
 		for i, arm := range n.Arms {
 			armLast := i == len(n.Arms)-1
@@ -139,15 +136,12 @@ func dump(e Expr, indent string, last bool) string {
 			out.WriteString(dump(arm.Pattern, pNext, true))
 			if arm.Guard != nil {
 				gLine, gNext := node(armNext, false, "Guard")
-				out.WriteString("\n")
 				out.WriteString(gLine)
 				out.WriteString(dump(arm.Guard, gNext, true))
 			}
 			bLine, bNext := node(armNext, true, "Body")
-			out.WriteString("\n")
 			out.WriteString(bLine)
 			out.WriteString(dump(arm.Body, bNext, true))
-			out.WriteString("\n")
 		}
 		return strings.TrimRight(out.String(), "\n")
 	case *VarDeclExpr:
@@ -160,7 +154,6 @@ func dump(e Expr, indent string, last bool) string {
 			out.WriteString(dump(n.Type, tNext, true))
 		}
 		vLine, vNext := node(next, true, "Value")
-		out.WriteString("\n")
 		out.WriteString(vLine)
 		out.WriteString(dump(n.Value, vNext, true))
 		return out.String()
@@ -173,7 +166,6 @@ func dump(e Expr, indent string, last bool) string {
 		out.WriteString(line)
 		if len(n.Decorators) > 0 {
 			dLine, dNext := node(next, true, "Decorators")
-			out.WriteString("\n")
 			out.WriteString(dLine)
 			for i, dec := range n.Decorators {
 				out.WriteString(dump(&dec, dNext, i == len(n.Decorators)-1))
@@ -190,12 +182,10 @@ func dump(e Expr, indent string, last bool) string {
 		}
 		if n.Ret != nil {
 			rLine, rNext := node(next, false, "ReturnType")
-			out.WriteString("\n")
 			out.WriteString(rLine)
 			out.WriteString(dump(n.Ret, rNext, true))
 		}
 		bLine, bNext := node(next, true, "Body")
-		out.WriteString("\n")
 		out.WriteString(bLine)
 		out.WriteString(dump(n.Body, bNext, true))
 		return out.String()
@@ -272,9 +262,19 @@ func dump(e Expr, indent string, last bool) string {
 		out.WriteString(lhsLine)
 		out.WriteString(dump(n.Name, lhsNext, true))
 		rhsLine, rhsNext := node(next, true, "RHS")
-		out.WriteString("\n")
 		out.WriteString(rhsLine)
 		out.WriteString(dump(n.Value, rhsNext, true))
+		return out.String()
+	case *IndexExpr:
+		line, next := node(indent, last, "IndexExpr")
+		var out strings.Builder
+		out.WriteString(line)
+		tLine, tNext := node(next, false, "Target")
+		out.WriteString(tLine)
+		out.WriteString(dump(n.Target, tNext, true))
+		iLine, iNext := node(next, true, "Index")
+		out.WriteString(iLine)
+		out.WriteString(dump(n.Index, iNext, true))
 		return out.String()
 	default:
 		line, _ := node(indent, last, fmt.Sprintf("<unknown %T>", n))

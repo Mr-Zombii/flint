@@ -202,7 +202,8 @@ func (p *Parser) parsePrimary() Expr {
 		p.eat()
 		var expr Expr = &Identifier{Name: tok.Lexeme, Pos: tok}
 		for {
-			if p.cur().Kind == lexer.Colon {
+			switch p.cur().Kind {
+			case lexer.Colon:
 				opTok := p.eat()
 				rightTok, ok := p.expect(lexer.Identifier)
 				if !ok {
@@ -213,9 +214,7 @@ func (p *Parser) parsePrimary() Expr {
 					Right: rightTok,
 					Pos:   opTok,
 				}
-				continue
-			}
-			if p.cur().Kind == lexer.Dot {
+			case lexer.Dot:
 				opTok := p.eat()
 				fieldTok, ok := p.expect(lexer.Identifier)
 				if !ok {
@@ -226,10 +225,24 @@ func (p *Parser) parsePrimary() Expr {
 					Right: fieldTok.Lexeme,
 					Pos:   opTok,
 				}
-				continue
+			case lexer.LeftBracket:
+				lb := p.eat()
+				index := p.parseExpression(0)
+				if index == nil {
+					p.errorAt(lb, "expected expression inside indexing")
+				}
+				if _, ok := p.expect(lexer.RightBracket); !ok {
+					return nil
+				}
+				expr = &IndexExpr{
+					Target: expr,
+					Index:  index,
+					Pos:    lb,
+				}
 			}
-
-			break
+			if p.cur().Kind != lexer.Colon && p.cur().Kind != lexer.Dot && p.cur().Kind != lexer.LeftBracket {
+				break
+			}
 		}
 		if p.cur().Kind == lexer.LeftParen {
 			return p.parseCall(expr)
@@ -264,17 +277,10 @@ func (p *Parser) parsePrimary() Expr {
 		if len(tok.Lexeme) != 3 || tok.Lexeme[0] != '\'' || tok.Lexeme[2] != '\'' {
 			p.errorAt(tok, fmt.Sprintf("invalid byte literal %q", tok.Lexeme))
 		}
-		return &ByteLiteral{
-			Value: tok.Lexeme[1],
-			Raw:   tok.Lexeme,
-			Pos:   tok,
-		}
+		return &ByteLiteral{Value: tok.Lexeme[1], Raw: tok.Lexeme, Pos: tok}
 	case lexer.Bool:
 		p.eat()
-		val := false
-		if tok.Lexeme == "True" {
-			val = true
-		}
+		val := tok.Lexeme == "True"
 		return &BoolLiteral{Value: val, Pos: tok}
 	case lexer.LeftParen:
 		p.eat()
