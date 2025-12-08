@@ -105,11 +105,26 @@ func (tc *TypeChecker) visitIdentifier(id *parser.Identifier) *Type {
 }
 
 func (tc *TypeChecker) visitVarDecl(d *parser.VarDeclExpr) *Type {
+	if _, exists := tc.env.currentScopeGet(d.Name.Lexeme); exists {
+		tc.error(d.Name, fmt.Sprintf("variable '%s' already declared in this scope", d.Name.Lexeme))
+		return &Type{TKind: TyError}
+	}
 	var varTy *Type
 	if d.Value != nil {
 		switch expr := d.Value.(type) {
 		case *parser.ListExpr:
 			varTy = tc.visitList(expr, nil)
+		case *parser.TupleExpr:
+			elemTypes := make([]*Type, len(expr.Elements))
+			for i, e := range expr.Elements {
+				t := tc.Check(e)
+				if t == nil || t.TKind == TyError {
+					tc.error(d.Name, fmt.Sprintf("cannot infer type for tuple element %d", i+1))
+					return &Type{TKind: TyError}
+				}
+				elemTypes[i] = t
+			}
+			varTy = &Type{TKind: TyTuple, TElems: elemTypes}
 		default:
 			varTy = tc.Check(expr)
 		}
@@ -146,6 +161,10 @@ func (tc *TypeChecker) visitVarDecl(d *parser.VarDeclExpr) *Type {
 }
 
 func (tc *TypeChecker) visitFuncDecl(fn *parser.FuncDeclExpr) *Type {
+	if _, exists := tc.env.currentScopeGet(fn.Name.Lexeme); exists {
+		tc.error(fn.Name, fmt.Sprintf("function '%s' already declared in this scope", fn.Name.Lexeme))
+		return &Type{TKind: TyError}
+	}
 	paramTypes := make([]*Type, len(fn.Params))
 	for i, p := range fn.Params {
 		if p.Type == nil {
@@ -514,12 +533,6 @@ func (tc *TypeChecker) visitAssign(a *parser.AssignExpr) *Type {
 
 func (tc *TypeChecker) visitIndex(idx *parser.IndexExpr) *Type {
 	targetTy := tc.Check(idx.Target)
-	if targetTy.TKind != TyList && targetTy.TKind != TyString {
-		tc.error(idx.Pos, fmt.Sprintf(
-			"cannot index type %s", targetTy.String()))
-		return &Type{TKind: TyError}
-	}
-
 	indexTy := tc.Check(idx.Index)
 	if indexTy.TKind != TyInt {
 		tc.error(idx.Pos, fmt.Sprintf(
@@ -534,6 +547,19 @@ func (tc *TypeChecker) visitIndex(idx *parser.IndexExpr) *Type {
 		return &Type{TKind: TyNil}
 	case TyString:
 		return &Type{TKind: TyByte}
+	case TyTuple:
+		idxLit, ok := idx.Index.(*parser.IntLiteral)
+		if !ok {
+			tc.error(idx.Pos, "tuple index must be a constant integer literal")
+			return &Type{TKind: TyError}
+		}
+		if idxLit.Value < 0 || idxLit.Value >= int64(len(targetTy.TElems)) {
+			tc.error(idx.Pos, fmt.Sprintf(
+				"tuple index out of bounds: %d (tuple length %d)",
+				idxLit.Value, len(targetTy.TElems)))
+			return &Type{TKind: TyError}
+		}
+		return targetTy.TElems[idxLit.Value]
 	default:
 		return &Type{TKind: TyError}
 	}

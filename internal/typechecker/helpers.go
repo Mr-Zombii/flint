@@ -39,3 +39,11 @@ func (tc *TypeChecker) resolveType(t parser.Expr) *Type {
 	}
 	return &Type{TKind: TyError}
 }
+
+func (e *Env) currentScopeGet(name string) (*VarInfo, bool) {
+	ty, ok := e.vars[name]
+	if !ok {
+		return nil, false
+	}
+	return &ty, true
+}
