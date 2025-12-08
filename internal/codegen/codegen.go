@@ -73,15 +73,29 @@ func (cg *CodeGen) emitFunction(fn *parser.FuncDeclExpr) {
 	if fn.Body == nil {
 		if name == "main" {
 			entry.NewRet(constant.NewInt(types.I32, 0))
+		} else if mainFn.Sig.RetType.Equal(types.Void) {
+			entry.NewRet(nil)
 		} else {
 			cg.emitDefaultReturn(entry, mainFn.Sig.RetType, false)
 		}
 		return
 	}
 	block := fn.Body.(*parser.BlockExpr)
-	lastVal := cg.emitBlock(entry, block, true)
+	lastVal := cg.emitBlock(entry, block, false)
 	retTy := mainFn.Sig.RetType
-	if name != "main" {
+	if name == "main" {
+		exit := mainFn.NewBlock("main.exit")
+		for _, bb := range mainFn.Blocks {
+			if bb.Term == nil && bb != exit {
+				bb.NewBr(exit)
+			}
+		}
+		exit.NewRet(constant.NewInt(types.I32, 0))
+	} else if retTy.Equal(types.Void) {
+		if entry.Term == nil {
+			entry.NewRet(nil)
+		}
+	} else {
 		if lastVal != nil {
 			if b := parentBlockOfValue(lastVal); b != nil && b.Term == nil {
 				b.NewRet(lastVal)
@@ -91,15 +105,7 @@ func (cg *CodeGen) emitFunction(fn *parser.FuncDeclExpr) {
 		} else if entry.Term == nil {
 			cg.emitDefaultReturn(entry, retTy, false)
 		}
-		return
 	}
-	exit := mainFn.NewBlock("main.exit")
-	for _, bb := range mainFn.Blocks {
-		if bb.Term == nil && bb != exit {
-			bb.NewBr(exit)
-		}
-	}
-	exit.NewRet(constant.NewInt(types.I32, 0))
 }
 
 func (cg *CodeGen) emitBlock(b *ir.Block, blk *parser.BlockExpr, isTail bool) value.Value {

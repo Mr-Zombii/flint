@@ -11,7 +11,7 @@ pub fn println(v: String) Nil {
 
 pub fn main() Nil {
     mut x: String = "Hi Universe!"
-    println(x)
+    print(x)
     x = "Hello World!"
-    println(x)
+    print(x)
 }
